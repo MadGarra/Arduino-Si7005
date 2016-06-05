@@ -27,11 +27,18 @@ bool Si7005::detectSensor( )
   digitalWrite( _cs_pin, LOW );								// Enable the sensor
   delay( WAKE_UP_TIME );									// Wait for it to wake up
 
-  Wire.beginTransmission( SI7005_ADR );
-  Wire.write( REG_ID );										// Select the ID register
-  Wire.endTransmission( false );							// We don't want to release the bus - this is important!
+  #ifdef _LIB_SAM_    
+    // TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_t isize, uint8_t sendStop)
+    // Uses SAM TWI_StartRead function. It uses I2C Repeated Start condition to read register
+    Wire.requestFrom( SI7005_ADR, 1, (uint32_t) REG_ID,(uint8_t) 1, (uint8_t) true );
+  #else
+    Wire.beginTransmission( SI7005_ADR );
+    Wire.write( REG_ID );										// Select the ID register
+    Wire.endTransmission( false );							// We don't want to release the bus - this is important!
 
-  Wire.requestFrom( SI7005_ADR, 1 );
+    Wire.requestFrom( SI7005_ADR, 1 );
+  #endif
+    
   deviceID  = Wire.read( );									// Read the ID from the sensor
 
   digitalWrite( _cs_pin, HIGH );							// Disable the sensor
@@ -62,18 +69,28 @@ int Si7005::_doMeasurement( byte configValue )
   measurementStatus = STATUS_NOT_READY;						// Wait for the measurement to finish
   while ( measurementStatus & STATUS_NOT_READY )
   {
-    Wire.beginTransmission( SI7005_ADR );
-    Wire.write( REG_STATUS );
-    Wire.endTransmission( false );							// We don't want to release the bus - this is important!
-    Wire.requestFrom( SI7005_ADR, 1 );
+    #ifdef _LIB_SAM_    
+      Wire.requestFrom( SI7005_ADR, 1, (uint32_t) REG_STATUS,(uint8_t) 1, (uint8_t) true );
+    #else
+      Wire.beginTransmission( SI7005_ADR );
+      Wire.write( REG_STATUS );
+      Wire.endTransmission( false );							// We don't want to release the bus - this is important!
+      Wire.requestFrom( SI7005_ADR, 1 );
+    #endif
+    
     measurementStatus = Wire.read( );
   }
 
-  Wire.beginTransmission( SI7005_ADR );
-  Wire.write( REG_DATA );									// Select the DATA register
-  Wire.endTransmission( false );
+  #ifdef _LIB_SAM_    
+    Wire.requestFrom( SI7005_ADR, 2, (uint32_t) REG_DATA,(uint8_t) 1, (uint8_t) true );
+  #else
+    Wire.beginTransmission( SI7005_ADR );
+    Wire.write( REG_DATA );									// Select the DATA register
+    Wire.endTransmission( false );
+    Wire.requestFrom( SI7005_ADR, 2 );						// Read 2 bytes from the sensor
+  #endif
 
-  Wire.requestFrom( SI7005_ADR, 2 );						// Read 2 bytes from the sensor
+
   while ( Wire.available( ) < 2 )							// Wait for data
   {;;}
   
